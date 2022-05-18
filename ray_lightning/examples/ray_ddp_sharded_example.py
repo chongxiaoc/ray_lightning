@@ -20,7 +20,7 @@ class CUDACallback(Callback):
         torch.cuda.synchronize(trainer.root_gpu)
         self.start_time = time.time()
 
-    def on_train_epoch_end(self, trainer, pl_module, outputs):
+    def on_train_epoch_end(self, trainer, pl_module):
         torch.cuda.synchronize(trainer.root_gpu)
         max_memory = torch.cuda.max_memory_allocated(trainer.root_gpu) / 2**20
         epoch_time = time.time() - self.start_time
@@ -63,6 +63,7 @@ def train(data_dir, num_workers, use_gpu, batch_size, embed_dim, max_epochs,
 
     trainer = pl.Trainer(
         max_epochs=max_epochs,
+        gpus=1 if use_gpu else 0,
         precision=16 if use_gpu else 32,
         callbacks=[CUDACallback()] if use_gpu else [],
         plugins=plugin,
