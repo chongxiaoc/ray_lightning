@@ -129,6 +129,7 @@ class RayPlugin(DDPSpawnPlugin):
             else {}
         self.nickname = "ddp_ray"
         self.num_workers = num_workers
+        print("num_workers:", num_workers)
         self.num_cpus_per_worker = resources_per_worker.pop(
             "CPU", num_cpus_per_worker)
 
@@ -346,6 +347,7 @@ class RayPlugin(DDPSpawnPlugin):
             # Create communication queue and send to all the workers.
             queue = Queue(actor_options={"num_cpus": 0})
 
+        print(f"call {self.num_workers} remote executes!")
         self._futures = [
             self.workers[i].execute.remote(self.execute_remote, model_ref, i,
                                            queue)
@@ -369,6 +371,8 @@ class RayPlugin(DDPSpawnPlugin):
         actors."""
 
         results = ray.get(self._futures)
+        #print("post dispatch results:", results)
+        #print("post dispatch results[0]:", results[0])
         # Get the results, checkpoint path, and model weights from worker 0.
         results, best_path, state_stream, callback_metrics = results[0]
         self._results = results
@@ -403,6 +407,7 @@ class RayPlugin(DDPSpawnPlugin):
         # initialized).
         # If this method is called on the driver (i.e. self._is_remote is
         # False, then do a no-op).
+        print("call set world rank, process_idx:", process_idx, "is_remote:", self._is_remote)
         if self._is_remote:
             self._global_rank = process_idx
             self._local_rank, self._node_rank = self.global_to_local[
@@ -445,6 +450,7 @@ class RayPlugin(DDPSpawnPlugin):
         """
         assert isinstance(self, RayPlugin)
         # This method should be executed remotely in each worker.
+        print("enter execute remote, global rank", global_rank)
         self._model = model
         self.lightning_module.trainer._accelerator_connector \
             ._training_type_plugin = self
@@ -479,7 +485,9 @@ class RayPlugin(DDPSpawnPlugin):
         self.barrier()
 
         results = self.lightning_module.trainer.run_stage()
-
+        
+        print(f"rank {self.global_rank}, metrics: {self.lightning_module.trainer.logged_metrics},"
+              f"{self.lightning_module.trainer.callback_metrics}")
         # __transfer_distrib_spawn_state_on_fit_end start
         if self.global_rank == 0:
             checkpoint_callback = \
